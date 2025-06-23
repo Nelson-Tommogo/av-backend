@@ -6,6 +6,7 @@ import connectDB from "./config/db.js";
 import stkRoutes from "./routes/stkRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+import transactionRoutes from "./routes/transactionRoutes.js"
 import { notFound, errorHandler } from "./middlewares/errorMiddleware.js";
 
 // Load env
@@ -40,7 +41,9 @@ app.get("/", (req, res) => {
 // API routes
 app.use("/api/stk", stkRoutes);        
 app.use("/api/auth", authRoutes);      
-app.use("/api/users", userRoutes);    
+app.use("/api/users", userRoutes);  
+app.use("/api/mpesa", transactionRoutes);
+
 
 // Error handling
 app.use(notFound);

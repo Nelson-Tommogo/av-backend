@@ -1,12 +1,11 @@
-const mongoose = require('mongoose');
+import mongoose from "mongoose";
 
-const TransactionSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  amount: { type: Number, required: true },
-  transactionId: { type: String, required: true },
+const transactionSchema = new mongoose.Schema({
   phone: { type: String, required: true },
-  status: { type: String, default: 'pending' },
-  createdAt: { type: Date, default: Date.now }
+  amount: { type: Number, required: true },
+  mpesaReceiptNumber: { type: String, required: true, unique: true },
+  transactionDate: { type: Date, default: Date.now },
 });
 
-module.exports = mongoose.model('Transaction', TransactionSchema);
+const Transaction = mongoose.model("Transaction", transactionSchema);
+export default Transaction;
