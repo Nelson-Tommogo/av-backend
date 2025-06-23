@@ -5,7 +5,7 @@ import Wallet from "../model/Wallet.js";
 
 export const signup = async (req, res) => {
   try {
-    const { email, password, phone } = req.body;
+    const { email, password, phone, firstname, lastname } = req.body;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -17,6 +17,8 @@ export const signup = async (req, res) => {
       email,
       password: hashedPassword,
       phone,
+      firstname,
+      lastname
     });
 
     const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, {
