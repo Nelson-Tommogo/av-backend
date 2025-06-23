@@ -38,9 +38,9 @@ app.get("/", (req, res) => {
 });
 
 // API routes
-app.use("/api/stk", stkRoutes);        // Your existing STK logic
-app.use("/api/auth", authRoutes);      // Auth routes: /signup, /login
-app.use("/api/users", userRoutes);     // Protected user routes like /profile
+app.use("/api/stk", stkRoutes);        
+app.use("/api/auth", authRoutes);      
+app.use("/api/users", userRoutes);    
 
 // Error handling
 app.use(notFound);
