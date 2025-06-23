@@ -2,6 +2,7 @@ import express from "express";
 import axios from "axios";
 import moment from "moment";
 import { getToken } from "../middlewares/tokenMiddleware.js";
+import Transaction from "../model/Transaction.js";
 import Stripe from "stripe";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -125,7 +126,6 @@ router.post("/stk", getToken, async (req, res) => {
   }
 });
 
-// Route to handle callback with basic validation
 router.post("/callback", async (req, res) => {
   try {
     if (!req.body || !req.body.Body) {
@@ -134,7 +134,7 @@ router.post("/callback", async (req, res) => {
 
     const callbackData = req.body;
     const resultCode = callbackData.Body.stkCallback.ResultCode;
-    
+
     if (resultCode !== 0) {
       return res.status(400).json({
         ResultCode: resultCode,
@@ -143,23 +143,21 @@ router.post("/callback", async (req, res) => {
     }
 
     const metadata = callbackData.Body.stkCallback.CallbackMetadata;
-    if (!metadata || !metadata.Item) {
-      return res.status(400).json({ error: "Invalid callback metadata" });
-    }
+    const getItemValue = (name) =>
+      metadata.Item.find((obj) => obj.Name === name)?.Value || null;
 
-    const getItemValue = (name) => {
-      const item = metadata.Item.find(obj => obj.Name === name);
-      return item ? item.Value : null;
+    const transaction = {
+      amount: getItemValue("Amount"),
+      mpesaCode: getItemValue("MpesaReceiptNumber"),
+      phone: getItemValue("PhoneNumber"),
     };
 
-    return res.status(200).json({
-      message: "Callback processed successfully.",
-      transaction: {
-        amount: getItemValue("Amount"),
-        mpesaCode: getItemValue("MpesaReceiptNumber"),
-        phone: getItemValue("PhoneNumber"),
-        date: getItemValue("TransactionDate"),
-      },
+    // Save transaction to DB
+    await Transaction.create(transaction);
+
+    res.status(200).json({
+      message: "Transaction saved",
+      transaction,
     });
   } catch (error) {
     console.error("Callback processing error:", error);
@@ -169,6 +167,9 @@ router.post("/callback", async (req, res) => {
     });
   }
 });
+
+
+
 
 // Route to query STK push status
 router.post("/stkquery", getToken, async (req, res) => {
