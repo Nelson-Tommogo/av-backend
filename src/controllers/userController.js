@@ -9,10 +9,8 @@ export const getProfile = async (req, res) => {
     }
 
     const freshUser = await User.findById(user._id).select("-password");
-
-    if (!freshUser) {
+    if (!freshUser)
       return res.status(404).json({ message: "User not found" });
-    }
 
     res.status(200).json({
       id: freshUser._id,
