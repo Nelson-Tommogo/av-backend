@@ -1,7 +1,7 @@
-// src/controllers/authController.js
 import User from "../model/User.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import Wallet from "../model/Wallet.js";
 
 export const signup = async (req, res) => {
   try {
@@ -62,5 +62,27 @@ export const login = async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ message: "Login failed", error: err.message });
+  }
+};
+
+export const getLoggedInUser = async (req, res) => {
+  try {
+    const user = req.user;
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const wallet = await Wallet.findOne({ phone: user.phone });
+
+    res.status(200).json({
+      id: user._id,
+      email: user.email,
+      phone: user.phone,
+      createdAt: user.createdAt,
+      walletBalance: wallet?.balance || 0,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Something went wrong", error: error.message });
   }
 };
