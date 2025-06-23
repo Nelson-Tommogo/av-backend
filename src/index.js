@@ -8,6 +8,7 @@ import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import transactionRoutes from "./routes/transactionRoutes.js"
 import { notFound, errorHandler } from "./middlewares/errorMiddleware.js";
+import paymentRoutes from "./routes/paymentRoutes.js";
 
 // Load env
 dotenv.config({ path: "./src/.env" });
@@ -43,6 +44,8 @@ app.use("/api/stk", stkRoutes);
 app.use("/api/auth", authRoutes);      
 app.use("/api/users", userRoutes);  
 app.use("/api/mpesa", transactionRoutes);
+app.use("/api/payments", paymentRoutes);
+
 
 
 // Error handling

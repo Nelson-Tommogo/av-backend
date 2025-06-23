@@ -4,7 +4,6 @@ const router = express.Router();
 import { protect } from "../middlewares/authMiddleware.js";
 import Transaction from "../model/Transaction.js";
 
-// Fetch user transactions
 router.get("/transactions", protect, async (req, res) => {
   try {
     const phone = req.user.phone;

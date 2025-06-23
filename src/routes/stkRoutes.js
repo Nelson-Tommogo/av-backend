@@ -127,6 +127,8 @@ router.post("/stk", getToken, async (req, res) => {
 });
 
 router.post("/callback", async (req, res) => {
+  console.log("✅ Received callback from M-PESA");
+  console.log(JSON.stringify(req.body, null, 2));
   try {
     if (!req.body || !req.body.Body) {
       return res.status(400).json({ error: "Invalid callback data" });
