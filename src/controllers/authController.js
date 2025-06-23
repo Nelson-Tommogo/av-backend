@@ -29,6 +29,8 @@ export const signup = async (req, res) => {
         id: newUser._id,
         email: newUser.email,
         phone: newUser.phone,
+        firstname: newUser.firstname,
+        lastname: newUser.lastname
       },
       token,
     });
@@ -57,6 +59,8 @@ export const login = async (req, res) => {
         id: user._id,
         email: user.email,
         phone: user.phone,
+        firstname: user.firstname,
+        lastname: user.lastname
       },
       token,
     });
@@ -79,6 +83,8 @@ export const getLoggedInUser = async (req, res) => {
       id: user._id,
       email: user.email,
       phone: user.phone,
+      firstname: user.firstname,
+      lastname: user.lastname,
       createdAt: user.createdAt,
       walletBalance: wallet?.balance || 0,
     });

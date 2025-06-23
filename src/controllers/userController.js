@@ -23,6 +23,8 @@ export const getProfile = async (req, res) => {
       id: freshUser._id,
       email: freshUser.email,
       phone: freshUser.phone,
+      firstname: freshUser.firstname,
+      lastname: freshUser.lastname,
       createdAt: freshUser.createdAt,
       transactions,
       totalDeposited
