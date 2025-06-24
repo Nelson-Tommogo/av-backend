@@ -6,9 +6,11 @@ import connectDB from "./config/db.js";
 import stkRoutes from "./routes/stkRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
-import transactionRoutes from "./routes/transactionRoutes.js"
+import transactionRoutes from "./routes/transactionRoutes.js";
 import { notFound, errorHandler } from "./middlewares/errorMiddleware.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
+import depositRoutes from "./routes/deposits.js";
+
 
 // Load env
 dotenv.config({ path: "./src/.env" });
@@ -45,6 +47,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);  
 app.use("/api/mpesa", transactionRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/deposits", depositRoutes);
+
 
 
 
