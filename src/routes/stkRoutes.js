@@ -3,8 +3,6 @@ import axios from "axios";
 import moment from "moment";
 import { getToken } from "../middlewares/tokenMiddleware.js";
 import Transaction from "../model/Transaction.js";
-import Stripe from "stripe";
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 const router = express.Router();
 
@@ -173,165 +171,106 @@ router.post("/callback", async (req, res) => {
 
 
 
-// Route to query STK push status
 router.post("/stkquery", getToken, async (req, res) => {
   try {
     const { checkoutRequestID } = req.body;
-    if (!checkoutRequestID) {
+
+    // 1. Validate input
+    if (!checkoutRequestID || typeof checkoutRequestID !== "string") {
       return res.status(400).json({ 
-        error: "CheckoutRequestID is required" 
+        success: false,
+        error: "Valid CheckoutRequestID is required (string)",
       });
     }
 
+    // 2. Generate M-Pesa password and timestamp
     const { password, timestamp } = generatePassword(
       process.env.M_PESA_SHORT_CODE,
       process.env.M_PESA_PASSKEY
     );
 
-    const requestBody = {
-      BusinessShortCode: process.env.M_PESA_SHORT_CODE,
-      Password: password,
-      Timestamp: timestamp,
-      CheckoutRequestID: checkoutRequestID,
-    };
-
+    // 3. Call Safaricom STK Query API
     const response = await axios.post(
-      `${process.env.BASE_URL}mpesa/stkpushquery/v1/query`,
-      requestBody,
+      `${process.env.BASE_URL}/mpesa/stkpushquery/v1/query`,
+      {
+        BusinessShortCode: process.env.M_PESA_SHORT_CODE,
+        Password: password,
+        Timestamp: timestamp,
+        CheckoutRequestID: checkoutRequestID.trim(),
+      },
       {
         headers: {
           Authorization: `Bearer ${req.token}`,
           'Content-Type': 'application/json',
         },
+        timeout: 10000, // 10-second timeout
       }
     );
 
-    const { ResultCode, ResultDesc } = response.data;
+    const { 
+      ResultCode, 
+      ResultDesc, 
+      MerchantRequestID, 
+      CheckoutRequestID: reqID,
+      CallbackMetadata // Contains payment details (amount, receipt, phone)
+    } = response.data;
+
+    // 4. Handle successful payment
     if (ResultCode === "0") {
+      // Extract payment details from CallbackMetadata
+      const metadata = CallbackMetadata?.Item || [];
+      const getItemValue = (name) => metadata.find((item) => item.Name === name)?.Value;
+
+      const transactionData = {
+        merchantRequestID: MerchantRequestID,
+        checkoutRequestID: reqID,
+        amount: getItemValue("Amount"),
+        mpesaReceiptNumber: getItemValue("MpesaReceiptNumber"),
+        phoneNumber: getItemValue("PhoneNumber"),
+        transactionDate: getItemValue("TransactionDate"),
+        status: "completed",
+      };
+
+      // 5. Save to MongoDB
+      const savedTransaction = await Transaction.create(transactionData);
+
       return res.status(200).json({
-        status: "Success",
-        message: "Payment successful",
-        data: response.data,
-      });
-    } else {
-      return res.status(400).json({
-        status: "Failure",
-        message: ResultDesc,
-        data: response.data,
+        success: true,
+        status: "success",
+        message: "Payment completed and saved successfully",
+        data: savedTransaction,
       });
     }
+
+    // 6. Handle failed payment
+    return res.status(200).json({
+      success: false,
+      status: "failed",
+      message: ResultDesc || "Payment failed",
+      data: {
+        resultCode: ResultCode,
+        merchantRequestID: MerchantRequestID,
+        checkoutRequestID: reqID,
+      },
+    });
+
   } catch (error) {
     console.error("STK Query Error:", error.message);
+
+    // Handle errors (same as before)
     if (error.response) {
-      return res.status(error.response.status).json({
+      return res.status(502).json({
+        success: false,
         error: "Safaricom API Error",
-        message: error.response.data.errorMessage || error.response.data,
+        message: error.response.data.errorMessage || "Payment status query failed",
       });
     }
     return res.status(500).json({
+      success: false,
       error: "Internal Server Error",
       message: error.message,
     });
   }
 });
-
-//card Payment Section
-router.post("/stripe/create-payment-intent", getToken, async (req, res) => {
-  try {
-    const { amount, description, metadata } = req.body;
-    
-    if (!amount || isNaN(amount)) {
-      return res.status(400).json({ error: "Valid amount is required" });
-    }
-
-    // Convert amount to cents (or smallest currency unit)
-    const amountInCents = Math.round(parseFloat(amount) * 100);
-
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amountInCents,
-      currency: process.env.STRIPE_CURRENCY || "usd",
-      description: description || "Payment for goods/services",
-      metadata: metadata || {},
-      automatic_payment_methods: {
-        enabled: true,
-      },
-    });
-
-    res.status(200).json({
-      clientSecret: paymentIntent.client_secret,
-      paymentIntentId: paymentIntent.id,
-    });
-  } catch (error) {
-    console.error("Stripe Payment Intent Error:", error);
-    res.status(500).json({
-      error: "Failed to create payment intent",
-      message: error.message,
-    });
-  }
-});
-
-
-router.post("/stripe/webhook", express.raw({ type: 'application/json' }), async (req, res) => {
-  const sig = req.headers['stripe-signature'];
-  let event;
-
-  try {
-    event = stripe.webhooks.constructEvent(
-      req.body,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET
-    );
-  } catch (err) {
-    console.error(`Webhook Error: ${err.message}`);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
-
-  // Handle specific event types
-  switch (event.type) {
-    case 'payment_intent.succeeded':
-      // eslint-disable-next-line no-case-declarations
-      const paymentIntent = event.data.object;
-      console.log(`PaymentIntent for ${paymentIntent.amount} was successful!`);
-      // Update your database here
-      break;
-    case 'payment_intent.payment_failed':
-      // eslint-disable-next-line no-case-declarations
-      const failedIntent = event.data.object;
-      console.error(`Payment failed: ${failedIntent.last_payment_error?.message}`);
-      break;
-    // Add more event types as needed
-    default:
-      console.log(`Unhandled event type ${event.type}`);
-  }
-
-  res.status(200).json({ received: true });
-});
-
-router.post("/stripe/retrieve-payment", getToken, async (req, res) => {
-  try {
-    const { paymentIntentId } = req.body;
-    
-    if (!paymentIntentId) {
-      return res.status(400).json({ error: "paymentIntentId is required" });
-    }
-
-    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-
-    res.status(200).json({
-      status: paymentIntent.status,
-      amount: paymentIntent.amount / 100, // Convert back to dollars
-      currency: paymentIntent.currency,
-      charges: paymentIntent.charges.data,
-    });
-  } catch (error) {
-    console.error("Stripe Retrieve Payment Error:", error);
-    res.status(500).json({
-      error: "Failed to retrieve payment",
-      message: error.message,
-    });
-  }
-});
-
-
 
 export default router;
