@@ -43,28 +43,40 @@ router.get("/by-email", async (req, res) => {
   })
 
 
-router.post('/place-bet', async (req, res) => {
-  const { email, betAmount } = req.body;
-
-  try {
-    const deposit = await Deposit.findOne({ email });
-
-    if (!deposit) return res.status(404).json({ message: 'User not found' });
-
-    if (deposit.amount < betAmount) {
-      return res.status(400).json({ message: 'Insufficient balance' });
+  router.post("/placebet", async (req, res) => {
+    try {
+      const { email, betAmount } = req.body;
+  
+      if (!email || !betAmount || betAmount <= 0) {
+        return res.status(400).json({ message: "Invalid input data" });
+      }
+  
+      // Get user deposit record
+      const userDeposit = await Deposit.findOne({ email });
+  
+      if (!userDeposit) {
+        return res.status(404).json({ message: "User deposit not found" });
+      }
+  
+      if (userDeposit.amount < betAmount) {
+        return res.status(400).json({ message: "Insufficient funds" });
+      }
+  
+      // Deduct bet amount
+      userDeposit.amount -= betAmount;
+  
+      // Save updated amount
+      await userDeposit.save();
+  
+      res.status(200).json({
+        message: "Bet placed successfully",
+        updatedAmount: userDeposit.amount
+      });
+  
+    } catch (error) {
+      console.error("Error placing bet:", error.message);
+      res.status(500).json({ message: "Server error" });
     }
-
-    deposit.amount -= betAmount;
-    await deposit.save();
-
-    res.status(200).json({
-      message: 'Bet placed successfully',
-      newBalance: deposit.amount
-    });
-  } catch (err) {
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
+  });
+  
 export default router
