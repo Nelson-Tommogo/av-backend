@@ -47,35 +47,59 @@ router.get("/by-email", async (req, res) => {
     try {
       const { email, betAmount } = req.body;
   
+      // Validate input
       if (!email || !betAmount || betAmount <= 0) {
         return res.status(400).json({ message: "Invalid input data" });
       }
   
-      // Get user deposit record
-      const userDeposit = await Deposit.findOne({ email });
-  
-      if (!userDeposit) {
-        return res.status(404).json({ message: "User deposit not found" });
+      // Get all deposits for this user
+      const deposits = await Deposit.find({ email });
+      
+      if (!deposits || deposits.length === 0) {
+        return res.status(404).json({ message: "No deposits found for this user" });
       }
   
-      if (userDeposit.amount < betAmount) {
-        return res.status(400).json({ message: "Insufficient funds" });
+      // Calculate total balance
+      const totalBalance = deposits.reduce((sum, deposit) => sum + deposit.amount, 0);
+  
+      if (totalBalance < betAmount) {
+        return res.status(400).json({ 
+          message: "Insufficient funds",
+          currentBalance: totalBalance,
+          requiredAmount: betAmount
+        });
       }
   
-      // Deduct bet amount
-      userDeposit.amount -= betAmount;
+      // Deduct from the most recent deposit first (better for tracking)
+      deposits.sort((a, b) => b.createdAt - a.createdAt);
+      
+      let remainingDeduction = betAmount;
+      for (const deposit of deposits) {
+        if (remainingDeduction <= 0) break;
   
-      // Save updated amount
-      await userDeposit.save();
+        const deductionAmount = Math.min(deposit.amount, remainingDeduction);
+        deposit.amount -= deductionAmount;
+        remainingDeduction -= deductionAmount;
+  
+        await deposit.save();
+      }
+  
+      // Calculate new balance (could also sum deposits again for verification)
+      const newBalance = totalBalance - betAmount;
   
       res.status(200).json({
+        success: true,
         message: "Bet placed successfully",
-        updatedAmount: userDeposit.amount
+        newBalance: newBalance,
+        betAmount: betAmount
       });
   
     } catch (error) {
       console.error("Error placing bet:", error.message);
-      res.status(500).json({ message: "Server error" });
+      res.status(500).json({ 
+        success: false,
+        message: "Server error while processing bet" 
+      });
     }
   });
   
